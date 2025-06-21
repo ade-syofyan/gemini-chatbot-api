@@ -205,9 +205,13 @@
           />
           <button
             type="submit"
-            class="py-3 px-6 border-none bg-primary-blue text-white rounded-full text-base cursor-pointer transition-colors duration-200 shadow-md hover:bg-primary-blue-hover dark:bg-button-dark dark:hover:bg-button-hover-dark"
+            aria-label="Kirim Pesan"
+            class="w-12 h-12 flex items-center justify-center border-none bg-primary-blue text-white rounded-full cursor-pointer transition-colors duration-200 shadow-md hover:bg-primary-blue-hover dark:bg-button-dark dark:hover:bg-button-hover-dark"
           >
-            Kirim
+            <!-- Send Icon -->
+            <svg id="send-icon" class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
+            <!-- Stop Icon (initially hidden) -->
+            <svg id="stop-icon" class="w-6 h-6 hidden" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M6 6h12v12H6z"></path></svg>
           </button>
         </form>
       </main>

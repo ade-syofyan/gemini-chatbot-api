@@ -5,6 +5,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const input = document.getElementById("user-input");
   const chatBox = document.getElementById("chat-box");
   const sendButton = document.querySelector("#chat-form button");
+  const sendIcon = document.getElementById("send-icon");
+  const stopIcon = document.getElementById("stop-icon");
   const sidebar = document.getElementById("sidebar");
   // Elements for sidebar header management
   const sidebarHeaderExpanded = document.getElementById(
@@ -40,6 +42,22 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentChatId = null; // The ID of the currently active chat
   let currentAbortController = null; // To manage ongoing fetch requests
 
+  // --- Helper function to manage send button state ---
+  function updateSendButtonState() {
+    const isSending = !stopIcon.classList.contains("hidden");
+    const isInputEmpty = input.value.trim() === "";
+
+    if (isSending) {
+      // If in "stop" mode, the button should always be enabled to allow cancellation.
+      sendButton.disabled = false;
+      sendButton.classList.remove("opacity-50", "cursor-not-allowed");
+    } else {
+      // If in "send" mode, disable based on whether the input is empty.
+      sendButton.disabled = isInputEmpty;
+      sendButton.classList.toggle("opacity-50", isInputEmpty);
+      sendButton.classList.toggle("cursor-not-allowed", isInputEmpty);
+    }
+  }
   // --- Local Storage & State Functions ---
 
   // Save all chats to localStorage
@@ -80,20 +98,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Fungsi untuk mengatur ulang input chat dan status tombol
   function resetChatState() {
-    sendButton.textContent = "Kirim";
+    sendIcon.classList.remove("hidden");
+    stopIcon.classList.add("hidden");
     input.disabled = false;
-    sendButton.disabled = false;
     hideTypingIndicator();
     currentAbortController = null; // Clear the controller
+    updateSendButtonState(); // Re-evaluate button state after reset
   }
 
   // --- Event Listeners ---
+  input.addEventListener("input", updateSendButtonState);
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
 
     // If the button says "Stop", it means a request is in progress
     // Clicking it again should abort the request
-    if (sendButton.textContent === "Hentikan") {
+    if (!stopIcon.classList.contains("hidden")) {
       if (currentAbortController) {
         currentAbortController.abort(); // Abort the ongoing fetch request
         console.log("Permintaan dibatalkan oleh pengguna.");
@@ -110,10 +130,10 @@ document.addEventListener("DOMContentLoaded", () => {
     appendMessage("user", userMessage);
     input.value = ""; // Clear input immediately
 
-    // Change button to "Stop" and disable input/button
-    sendButton.textContent = "Hentikan";
+    // Change button to "Stop" icon and disable input
+    sendIcon.classList.add("hidden");
+    stopIcon.classList.remove("hidden");
     input.disabled = true;
-    sendButton.disabled = true;
 
     // Show typing indicator
     showTypingIndicator();
@@ -278,9 +298,11 @@ document.addEventListener("DOMContentLoaded", () => {
   newChatBtn.addEventListener("click", () => {
     chatBox.innerHTML = ""; // Clear chat box
     chatBox.classList.add("hidden"); // Hide chat box again for new session
+    input.value = ""; // Clear the input field
     currentChatId = null; // Reset current chat ID
     updateActiveChatInSidebar(null); // Remove active highlight
     // In a real app, you would also reset the chat history context on the server if it were stateful
+    updateSendButtonState(); // Disable send button for the new empty chat
   });
 
   // Manage clicks on chat history items (edit title and load chat)
@@ -670,4 +692,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initial load of all chat histories from localStorage
   loadAllChatHistories();
+
+  // Set the initial state of the send button to disabled
+  updateSendButtonState();
 });
