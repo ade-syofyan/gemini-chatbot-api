@@ -27,26 +27,143 @@ h1 {
   border-radius: 5px;
   background-color: #fafafa;
   margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .message {
-  margin: 8px 0;
-  padding: 8px 12px;
+  padding: 10px 15px;
   border-radius: 20px;
   max-width: 80%;
-  display: inline-block;
+  word-wrap: break-word;
+  line-height: 1.4;
 }
 
 .message.user {
-  background-color: #d1e7ff;
-  float: right;
-  text-align: right;
+  background-color: #0d6efd;
+  color: white;
+  align-self: flex-end;
+  border-radius: 20px 20px 5px 20px;
 }
 
 .message.bot {
-  background-color: #dff6dd;
-  float: left;
+  background-color: #e9e9eb;
+  color: #333;
+  align-self: flex-start;
+  border-radius: 20px 20px 20px 5px;
+}
+
+/* Styles for Markdown rendering */
+.message.bot pre {
+  /* The <pre> tag acts as a container.
+     highlight.js styles the <code> tag inside.
+     We hide overflow here and let the <code> tag handle scrolling
+     to make border-radius work correctly. */
+  border-radius: 5px;
+  overflow: hidden;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.message.bot code {
+  font-family: 'Courier New', Courier, monospace;
+  background-color: #4f4f4f; /* Darker grey for inline code to match dark theme */
+  color: #f0f0f0;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.message.bot pre code {
+  background-color: transparent; /* No background for code inside pre */
+  padding: 0;
+}
+
+/* Basic Markdown styling for other elements (optional, but good practice) */
+.message.bot h1,
+.message.bot h2,
+.message.bot h3,
+.message.bot h4,
+.message.bot h5,
+.message.bot h6 {
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  font-weight: bold;
+}
+
+.message.bot p {
+  margin-bottom: 0.5em;
+}
+
+.message.bot ul,
+.message.bot ol {
+  margin-left: 20px;
+  margin-bottom: 0.5em;
+}
+
+.message.bot blockquote {
+  border-left: 4px solid #ccc;
+  padding-left: 10px;
+  color: #666;
+  margin-left: 0;
+  margin-right: 0;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.message.bot table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.message.bot table th,
+.message.bot table td {
+  border: 1px solid #ddd;
+  padding: 8px;
   text-align: left;
+}
+
+.message.bot table th {
+  background-color: #f2f2f2;
+}
+
+.typing-indicator {
+  padding: 15px;
+  display: flex;
+  align-items: center;
+}
+
+.typing-indicator span {
+  height: 8px;
+  width: 8px;
+  margin: 0 2px;
+  background-color: #9ca3af;
+  border-radius: 50%;
+  display: inline-block;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.typing-indicator span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes bounce {
+
+  0%,
+  80%,
+  100% {
+    transform: scale(0);
+  }
+
+  40% {
+    transform: scale(1.0);
+  }
 }
 
 form {

@@ -30,6 +30,7 @@ app.post("/api/chat", async (req, res) => {
     });
 
     if (response && response.text) {
+      console.log("AI Response:", response.text);
       res.json({ reply: response.text });
     } else {
       res.status(500).json({ reply: "No response from AI" });
