@@ -180,7 +180,11 @@ document.addEventListener("DOMContentLoaded", () => {
       saveChatHistory();
 
       // Call Gemini API to generate chat response
-      const chatPayload = { message: userMessage };
+      const history = chats[currentChatId]?.messages || [];
+      const chatPayload = {
+        history: history,
+        message: userMessage,
+      };
 
       const chatResponse = await fetch("/api/chat", {
         method: "POST",

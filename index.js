@@ -17,25 +17,59 @@ const genAI = new GoogleGenAI({
 });
 
 app.post("/api/chat", async (req, res) => {
-  const { message } = req.body;
+  const { message, history } = req.body;
 
-  if (!message) {
-    return res.status(400).json({ reply: "Message is required" });
+  if (!message || typeof message !== "string") {
+    return res
+      .status(400)
+      .json({ reply: "Message is required and must be a string." });
   }
 
   try {
-    const response = await genAI.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: message,
+    // Buat array awal untuk konten chat
+    const chatContent = [];
+
+    // Tambahkan instruksi awal sebagai pesan user (pseudo-system)
+    chatContent.push({
+      role: "user",
+      parts: [
+        {
+          text: "Gunakan Bahasa Indonesia sebagai default. Namun, jika saya menulis dalam bahasa lain atau memberikan instruksi dalam bahasa lain, tolong balas sesuai dengan bahasa dan instruksi tersebut.",
+        },
+      ],
     });
 
-    if (response && response.text) {
-      res.json({ reply: response.text });
+    // Tambahkan history jika ada dan valid
+    if (Array.isArray(history)) {
+      chatContent.push(
+        ...history.map((item) => ({
+          role: item.sender === "user" ? "user" : "model",
+          parts: [{ text: item.text }],
+        }))
+      );
+    }
+
+    // Tambahkan pesan terbaru user
+    chatContent.push({
+      role: "user",
+      parts: [{ text: message }],
+    });
+
+    // Kirim permintaan ke Gemini
+    const response = await genAI.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: chatContent,
+    });
+
+    const reply = response?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (reply) {
+      res.json({ reply });
     } else {
       res.status(500).json({ reply: "No response from AI" });
     }
   } catch (error) {
-    console.error(error);
+    console.error("AI error:", error);
     res.status(500).json({ reply: "Something went wrong" });
   }
 });
