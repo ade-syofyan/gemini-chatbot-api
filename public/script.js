@@ -25,6 +25,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const newChatBtn = document.getElementById("new-chat-btn");
   const newChatIconBtn = document.getElementById("new-chat-icon-btn"); // New icon button for collapsed state
 
+  const searchContainer = document.getElementById("search-container");
+  const searchHistoryInput = document.getElementById("search-history-input");
+
   const themeToggleSwitch = document.getElementById("theme-toggle-switch"); // New switch element
   const themeLabel = document.getElementById("theme-label"); // The text label for the theme
   const chatHistoryList = document.getElementById("chat-history-list"); // Nav element itself
@@ -94,8 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Populate the chat box with messages from the selected history
     chats[chatId].messages.forEach((message) => {
-      // `false` disables the typewriter effect for historical messages
-      appendMessage(message.sender, message.text, false);
+      appendMessage(message.sender, message.text);
     });
     toggleChatView(true); // Switch to active chat view
 
@@ -122,113 +124,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // If the button says "Stop", it means a request is in progress
     // Clicking it again should abort the request
     if (!stopIcon.classList.contains("hidden")) {
-      if (currentAbortController) {
-        currentAbortController.abort(); // Abort the ongoing fetch request
-        console.log("Permintaan dibatalkan oleh pengguna.");
-      }
-      resetChatState(); // Reset button and input state
+      stopGeneration();
       return; // Prevent further execution of the submit handler
     }
 
     const userMessage = input.value.trim();
     if (!userMessage) return;
 
-    toggleChatView(true); // Switch to active chat view
-
-    appendMessage("user", userMessage);
-    input.value = ""; // Clear input immediately
-
-    // Change button to "Stop" icon and disable input
-    sendIcon.classList.add("hidden");
-    stopIcon.classList.remove("hidden");
-    input.disabled = true;
-
-    // Show typing indicator
-    showTypingIndicator();
-
-    // Create a new AbortController for the current request
-    currentAbortController = new AbortController();
-    const signal = currentAbortController.signal;
-
-    try {
-      // Call Gemini API to automatically generate title if it's a new chat
-      if (!currentChatId) {
-        const promptForTitle = `Buat satu judul singkat saja (maksimal 5 kata, tanpa penjelasan, tanpa daftar) berdasarkan pesan pertama berikut:\n"${userMessage}"\nLangsung jawab hanya dengan judul.`;
-
-        // We can run title generation and chat response in parallel for faster UI
-        const titlePromise = fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: promptForTitle }),
-        }).then((res) => res.json());
-
-        // Create new chat session immediately with a temporary title
-        const newChatId = `chat-${Date.now()}`;
-        currentChatId = newChatId;
-        chats[newChatId] = {
-          title: "Percakapan Baru...",
-          messages: [],
-        };
-        createChatHistoryItem(chats[newChatId].title, newChatId);
-        updateActiveChatInSidebar(newChatId);
-
-        // Now, wait for the title and update it
-        const titleResult = await titlePromise;
-        let generatedTitle = "Percakapan Baru"; // Fallback title
-        if (titleResult.reply) {
-          generatedTitle = titleResult.reply.replace(/["\n]/g, "").trim();
-        }
-        chats[newChatId].title = generatedTitle;
-        updateChatHistoryItemTitle(newChatId, generatedTitle);
-        saveChatHistory();
-      }
-
-      // Save user message to history
-      chats[currentChatId].messages.push({ sender: "user", text: userMessage });
-      saveChatHistory();
-
-      // Call Gemini API to generate chat response
-      const history = chats[currentChatId]?.messages || [];
-      const chatPayload = {
-        history: history,
-        message: userMessage,
-      };
-
-      const chatResponse = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(chatPayload),
-        signal: signal,
-      });
-
-      if (!chatResponse.ok) {
-        const errorData = await chatResponse.json();
-        throw new Error(errorData.reply || "Server error");
-      }
-
-      const chatResult = await chatResponse.json();
-
-      if (chatResult.reply) {
-        appendMessage("bot", chatResult.reply);
-        // Save bot message to history
-        chats[currentChatId].messages.push({
-          sender: "bot",
-          text: chatResult.reply,
-        });
-        saveChatHistory();
-      } else {
-        appendMessage("bot", "Tidak ada balasan dari AI.");
-      }
-    } catch (error) {
-      if (error.name === "AbortError") {
-        console.log("Fetch dibatalkan berhasil oleh pengguna.");
-      } else {
-        console.error("Error:", error);
-        appendMessage("bot", `Error: ${error.message}`);
-      }
-    } finally {
-      resetChatState();
-    }
+    // Add user message to UI and history, then fetch response
+    sendMessage(userMessage);
   });
 
   // --- Sidebar Management ---
@@ -236,6 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function collapseSidebar() {
     sidebar.classList.remove("w-64");
     sidebar.classList.add("w-16", "p-2", "items-center");
+    searchContainer.classList.add("hidden"); // Sembunyikan search bar saat collapse
     sidebarHeaderExpanded.classList.add("hidden");
     sidebarHeaderCollapsed.classList.remove("hidden");
     chatHistoryList.classList.add("opacity-0", "pointer-events-none", "h-0", "overflow-hidden", "p-0");
@@ -245,6 +150,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function expandSidebar() {
     sidebar.classList.remove("w-16", "p-2", "items-center");
     sidebar.classList.add("w-64");
+    searchContainer.classList.remove("hidden"); // Tampilkan search bar saat expand
     sidebarHeaderExpanded.classList.remove("hidden");
     sidebarHeaderCollapsed.classList.add("hidden");
     chatHistoryList.classList.remove("opacity-0", "pointer-events-none", "h-0", "overflow-hidden", "p-0");
@@ -286,16 +192,33 @@ document.addEventListener("DOMContentLoaded", () => {
     newChatBtn.click(); // Trigger click on the main new chat button
   });
 
+  // --- Chat History Filtering ---
+  searchHistoryInput.addEventListener("input", (e) => {
+    const searchTerm = e.target.value.toLowerCase().trim();
+    const chatItems = chatHistoryList.querySelectorAll("li");
+
+    chatItems.forEach((item) => {
+      const chatId = item.dataset.chatId;
+      // Get the full title from the `chats` object for accurate searching
+      const chatTitle = chats[chatId]?.title.toLowerCase() || "";
+      if (chatTitle.includes(searchTerm)) {
+        item.style.display = "flex"; // Use 'flex' as it's a flex container
+      } else {
+        item.style.display = "none";
+      }
+    });
+  });
+
   // Manage dark/light mode via switch
   themeToggleSwitch.addEventListener("change", () => {
     if (themeToggleSwitch.checked) {
-      document.documentElement.classList.add("dark");
+      document.documentElement.classList.add("dark"); // Tambahkan kelas 'dark' ke elemen <html>
       localStorage.setItem("theme", "dark");
       moonIcon.classList.remove("hidden");
       sunIcon.classList.add("hidden");
       if (themeLabel) themeLabel.textContent = "Mode Gelap";
     } else {
-      document.documentElement.classList.remove("dark");
+      document.documentElement.classList.remove("dark"); // Hapus kelas 'dark' dari elemen <html>
       localStorage.setItem("theme", "light");
       moonIcon.classList.add("hidden");
       sunIcon.classList.remove("hidden");
@@ -304,7 +227,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Set initial theme based on localStorage or system preference
-  const savedTheme = localStorage.getItem("theme");
+  const savedTheme = localStorage.getItem("theme"); // Ambil preferensi tema dari localStorage
   if (savedTheme === "dark" || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
     document.documentElement.classList.add("dark");
     themeToggleSwitch.checked = true;
@@ -326,6 +249,14 @@ document.addEventListener("DOMContentLoaded", () => {
     updateSendButtonState(); // Disable send button for the new empty chat
   });
 
+  // Function to stop an ongoing generation
+  function stopGeneration() {
+    if (currentAbortController) {
+      currentAbortController.abort();
+      console.log("Permintaan dibatalkan oleh pengguna.");
+    }
+    resetChatState();
+  }
   // --- UI View Management ---
 
   // Function to switch between welcome view and active chat view
@@ -483,8 +414,156 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Refactored function to handle sending a message and getting a response
+  async function sendMessage(userMessage) {
+    toggleChatView(true);
+    appendMessage("user", userMessage);
+    input.value = ""; // Clear input immediately
+
+    // Save user message to history
+    if (!currentChatId) {
+      // This is the first message of a new chat
+      const newChatId = `chat-${Date.now()}`;
+      currentChatId = newChatId;
+      chats[newChatId] = {
+        title: "Percakapan Baru...",
+        messages: [{ sender: "user", text: userMessage }],
+      };
+      createChatHistoryItem(chats[newChatId].title, newChatId);
+      updateActiveChatInSidebar(newChatId);
+      saveChatHistory();
+      // Generate title in the background
+      generateTitleForChat(newChatId, userMessage);
+    } else {
+      chats[currentChatId].messages.push({ sender: "user", text: userMessage });
+      saveChatHistory();
+    }
+
+    await fetchAndStreamResponse();
+  }
+
+  // Function to generate a title for a new chat
+  async function generateTitleForChat(chatId, userMessage) {
+    try {
+      const promptForTitle = `Buat satu judul singkat saja (maksimal 5 kata, tanpa penjelasan, tanpa daftar) berdasarkan pesan pertama berikut:\n"${userMessage}"\nLangsung jawab hanya dengan judul.`;
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: promptForTitle, history: [] }), // No history for title generation
+      });
+      const result = await response.json();
+      if (result.reply) {
+        const generatedTitle = result.reply.replace(/["\n*]/g, "").trim();
+        chats[chatId].title = generatedTitle;
+        updateChatHistoryItemTitle(chatId, generatedTitle);
+        saveChatHistory();
+      }
+    } catch (error) {
+      console.error("Gagal membuat judul:", error);
+      // The title will remain "Percakapan Baru..." which is fine as a fallback
+    }
+  }
+
+  // Core function to fetch and stream the AI response
+  async function fetchAndStreamResponse() {
+    // Change button to "Stop" icon and disable input
+    sendIcon.classList.add("hidden");
+    stopIcon.classList.remove("hidden");
+    input.disabled = true;
+    updateSendButtonState();
+
+    // Remove any existing regenerate buttons
+    const existingRegenContainer = chatBox.querySelector(".regenerate-container");
+    if (existingRegenContainer) {
+      existingRegenContainer.remove();
+    }
+
+    showTypingIndicator(); // Tampilkan indikator "berpikir" sebelum memulai request
+
+    currentAbortController = new AbortController();
+    const signal = currentAbortController.signal;
+
+    try {
+      const history = chats[currentChatId]?.messages.slice(0, -1) || []; // Exclude the last user message from history for the payload
+      const lastUserMessage = chats[currentChatId]?.messages.slice(-1)[0]?.text;
+
+      const chatPayload = {
+        history: history,
+        message: lastUserMessage,
+      };
+
+      const chatResponse = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(chatPayload),
+        signal: signal,
+      });
+
+      if (!chatResponse.ok) {
+        throw new Error(`Server error: ${chatResponse.statusText}`);
+      }
+
+      const reader = chatResponse.body.getReader();
+      const decoder = new TextDecoder();
+      let fullBotResponse = "";
+      let botMsgElement = null; // Inisialisasi elemen pesan bot sebagai null
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // Pada chunk data pertama, buat elemen pesan dan sembunyikan indikator
+        if (!botMsgElement) {
+          hideTypingIndicator();
+          botMsgElement = createBotMessageElement();
+          chatBox.appendChild(botMsgElement);
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        fullBotResponse += chunk;
+        renderMarkdown(botMsgElement, fullBotResponse);
+      }
+
+      // Hanya simpan dan tambahkan tombol regenerate jika ada respons yang diterima
+      if (botMsgElement) {
+        chats[currentChatId].messages.push({ sender: "bot", text: fullBotResponse });
+        saveChatHistory();
+        addRegenerateControls(botMsgElement);
+      }
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        console.error("Error:", error);
+        appendMessage("bot", `Error: ${error.message}`);
+      }
+    } finally {
+      resetChatState();
+    }
+  }
+
+  // Helper to create an empty bot message element for streaming
+  function createBotMessageElement() {
+    const msgElement = document.createElement("div");
+    msgElement.classList.add(
+      "message",
+      "bot",
+      "p-3", // Padding
+      "rounded-2xl",
+      "max-w-4/5",
+      "break-words",
+      "leading-tight",
+      "shadow-sm",
+      "bg-bubble-bot-light", // Warna latar belakang gelembung bot
+      "text-text-bot-light", // Warna teks gelembung bot
+      "self-start",
+      "rounded-bl-none",
+      "dark:bg-bubble-bot-dark",
+      "dark:text-text-bot-dark"
+    );
+    return msgElement;
+  }
+
   // Add message to chat box
-  function appendMessage(sender, text, useTypewriter = true) {
+  function appendMessage(sender, text, useTypewriter = false) {
     const msgElement = document.createElement("div");
     msgElement.classList.add(
       "message",
@@ -499,11 +578,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (sender === "user") {
       msgElement.classList.add(
-        "bg-user-msg-light",
-        "text-white",
+        "bg-bubble-user-light", // Warna latar belakang gelembung user
+        "text-text-user-light", // Warna teks gelembung user
         "self-end",
         "rounded-br-none",
-        "dark:bg-user-msg-dark"
+        "dark:bg-bubble-user-dark"
       );
       msgElement.textContent = text;
       chatBox.appendChild(msgElement);
@@ -511,42 +590,63 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       // Bot message
       msgElement.classList.add(
-        "bg-bot-msg-light",
-        "text-bot-msg-text-light",
+        "bg-bubble-bot-light",
+        "text-text-bot-light",
         "self-start",
         "rounded-bl-none",
-        "dark:bg-bot-msg-dark",
-        "dark:text-bot-msg-text-dark"
+        "dark:bg-bubble-bot-dark",
+        "dark:text-text-bot-dark"
       );
 
-      if (useTypewriter) {
-        msgElement.textContent = ""; // Start with empty text content
-        chatBox.appendChild(msgElement);
-
-        let i = 0;
-        const typingSpeed = 30; // milliseconds
-
-        function typeWriter() {
-          if (
-            i < text.length &&
-            chatBox.contains(msgElement) &&
-            currentAbortController !== null
-          ) {
-            msgElement.textContent += text.charAt(i);
-            i++;
-            chatBox.scrollTop = chatBox.scrollHeight;
-            setTimeout(typeWriter, typingSpeed);
-          } else {
-            renderMarkdown(msgElement, text);
-          }
-        }
-        typeWriter();
-      } else {
-        // Render immediately for historical messages
-        chatBox.appendChild(msgElement);
-        renderMarkdown(msgElement, text);
-      }
+      // This path is now only for historical messages, which should be rendered directly.
+      chatBox.appendChild(msgElement);
+      renderMarkdown(msgElement, text);
     }
+  }
+
+  // Function to add regenerate controls below a bot message
+  function addRegenerateControls(botMessageElement) {
+    // Remove any existing controls first to ensure only the last message has it
+    const existingControls = chatBox.querySelector(".regenerate-container");
+    if (existingControls) {
+      existingControls.remove();
+    }
+
+    const container = document.createElement("div");
+    container.classList.add(
+      "regenerate-container",
+      "self-start",
+      "ml-2",
+      "mt-1"
+    );
+
+    const regenerateButton = document.createElement("button");
+    // Menggunakan ikon SVG yang lebih modern untuk Regenerate
+    regenerateButton.innerHTML = `
+      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 4l5 5M20 20l-5-5"></path></svg>
+      <span>Regenerate</span>
+    `;
+    regenerateButton.classList.add(
+      "flex", "items-center", "text-xs", "py-1", "px-2", "rounded-md",
+      "text-text-secondary-light", "dark:text-text-secondary-dark",
+      "hover:bg-icon-hover-light", "dark:hover:bg-icon-hover-dark",
+      "transition-colors"
+    );
+
+    regenerateButton.addEventListener("click", async () => {
+      // Remove the bot message from UI and history
+      botMessageElement.remove();
+      container.remove();
+      chats[currentChatId].messages.pop(); // Remove last bot message
+      saveChatHistory();
+
+      // Fetch a new response
+      await fetchAndStreamResponse();
+    });
+
+    container.appendChild(regenerateButton);
+    chatBox.appendChild(container);
+    chatBox.scrollTop = chatBox.scrollHeight;
   }
 
   // Helper to render markdown content
@@ -597,16 +697,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const copyButton = document.createElement("button");
       const copyIconSVG = `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg><span>Copy</span>`;
       const checkIconSVG = `<svg class="w-4 h-4 mr-1 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span class="text-green-500">Copied!</span>`;
-
       copyButton.innerHTML = copyIconSVG;
       copyButton.classList.add(
         "copy-code-btn",
         "absolute", "top-2", "right-2",
         // Improved styling for better contrast and modern look
-        "bg-gray-200", "dark:bg-gray-800",
-        "hover:bg-gray-300", "dark:hover:bg-gray-700",
-        "border", "border-gray-300", "dark:border-gray-600",
-        "text-gray-700", "dark:text-gray-300",
+        "bg-surface-light", // Menggunakan warna permukaan terang
+        "dark:bg-sidebar-dark", // Menggunakan warna sidebar gelap untuk kontras
+        "hover:bg-icon-hover-light", // Hover terang
+        "dark:hover:bg-icon-hover-dark", // Hover gelap
+        "border", "border-border-light", // Border terang
+        "dark:border-border-dark", // Border gelap
+        "text-text-secondary-light", // Teks sekunder terang
+        "dark:text-text-secondary-dark", // Teks sekunder gelap
         "text-xs", "font-sans", "font-medium",
         "py-1", "px-2", "rounded-md",
         "flex", "items-center",
@@ -639,10 +742,10 @@ document.addEventListener("DOMContentLoaded", () => {
         // Inline code
         code.classList.add(
           "font-mono",
-          "bg-gray-300",
-          "dark:bg-gray-600",
-          "text-gray-900",
-          "dark:text-gray-100",
+          "bg-icon-hover-light", // Latar belakang inline code
+          "dark:bg-icon-hover-dark",
+          "text-text-primary-light", // Teks inline code
+          "dark:text-text-primary-dark",
           "px-1",
           "py-0.5",
           "rounded-sm",
@@ -678,15 +781,32 @@ document.addEventListener("DOMContentLoaded", () => {
       .forEach((h) => h.classList.add("text-sm", "font-medium", "mt-1"));
 
     // Paragraphs
-    element.querySelectorAll("p").forEach((p) => p.classList.add("mb-2"));
+    element.querySelectorAll("p").forEach((p) => {
+      // Add margin to paragraphs, but not if they are the last element in the bubble
+      if (p.nextElementSibling) {
+        p.classList.add("mb-3");
+      }
+      // Remove margin from paragraphs inside list items to prevent double spacing
+      if (p.closest("li")) {
+        p.classList.remove("mb-3");
+      }
+    });
 
     // Lists
     element
       .querySelectorAll("ul")
-      .forEach((ul) => ul.classList.add("list-disc", "list-inside", "mb-2"));
+      .forEach((ul) => ul.classList.add("list-disc", "list-outside", "pl-5", "my-4", "space-y-2"));
     element
       .querySelectorAll("ol")
-      .forEach((ol) => ol.classList.add("list-decimal", "list-inside", "mb-2"));
+      .forEach((ol) => ol.classList.add("list-decimal", "list-outside", "pl-5", "my-4", "space-y-2"));
+
+    // List items
+    element.querySelectorAll("li").forEach((li) => li.classList.add("pl-2"));
+
+    // Strong/Bold text
+    element.querySelectorAll("strong, b").forEach(strong => { // Memastikan teks tebal lebih menonjol
+        strong.classList.add("font-semibold", "text-text-light", "dark:text-text-dark");
+    });
 
     // Blockquotes
     element.querySelectorAll("blockquote").forEach((bq) => {
@@ -695,31 +815,31 @@ document.addEventListener("DOMContentLoaded", () => {
         "border-gray-400",
         "pl-3",
         "italic",
-        "text-gray-600",
-        "my-3",
+        "text-text-secondary-light", // Teks sekunder
+        "my-4",
         "dark:border-gray-500",
-        "dark:text-gray-400"
+        "dark:text-secondary-text-dark"
       );
     });
 
     // Tables
     element.querySelectorAll("table").forEach((table) => {
-      table.classList.add("w-full", "border-collapse", "my-3", "shadow-sm");
+      table.classList.add("w-full", "border-collapse", "my-4", "shadow-sm");
     });
     element.querySelectorAll("th, td").forEach((cell) => {
       cell.classList.add(
         "border",
         "border-gray-300",
-        "dark:border-gray-600",
+        "dark:border-border-dark", // Border gelap
         "py-2",
         "px-3",
         "text-left"
       );
     });
     element.querySelectorAll("th").forEach((th) => {
-      th.classList.add(
-        "bg-gray-100",
-        "dark:bg-gray-700",
+      th.classList.add( // Header tabel
+        "bg-icon-hover-light",
+        "dark:bg-icon-hover-dark",
         "font-semibold",
         "text-gray-700",
         "dark:text-gray-200"
@@ -745,9 +865,9 @@ document.addEventListener("DOMContentLoaded", () => {
       "gap-1.5"
     );
     indicator.innerHTML = `
-      <span class="h-2 w-2 mx-0.5 bg-gray-400 dark:bg-gray-500 rounded-full inline-block animate-bounce-dot" style="animation-delay: -0.32s;"></span>
-      <span class="h-2 w-2 mx-0.5 bg-gray-400 dark:bg-gray-500 rounded-full inline-block animate-bounce-dot" style="animation-delay: -0.16s;"></span>
-      <span class="h-2 w-2 mx-0.5 bg-gray-400 dark:bg-gray-500 rounded-full inline-block animate-bounce-dot" style="animation-delay: 0s;"></span>
+      <span class="h-2 w-2 mx-0.5 bg-text-secondary-light dark:bg-text-secondary-dark rounded-full inline-block animate-bounce-dot" style="animation-delay: -0.32s;"></span>
+      <span class="h-2 w-2 mx-0.5 bg-text-secondary-light dark:bg-text-secondary-dark rounded-full inline-block animate-bounce-dot" style="animation-delay: -0.16s;"></span>
+      <span class="h-2 w-2 mx-0.5 bg-text-secondary-light dark:bg-text-secondary-dark rounded-full inline-block animate-bounce-dot" style="animation-delay: 0s;"></span>
     `;
     chatBox.appendChild(indicator);
     chatBox.scrollTop = chatBox.scrollHeight;
@@ -788,11 +908,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // Add active class styling
   const styleTagActive = document.createElement("style");
   styleTagActive.innerHTML = `
-    #chat-history-list li.active {
-      background-color: #e9ecef; /* icon-hover-light */
+    #chat-history-list li.active { /* Gaya untuk item chat yang aktif */
+      background-color: #E5E7EB; /* icon-hover-light */
     }
-    .dark #chat-history-list li.active {
-      background-color: #3a3a3a; /* icon-hover-dark */
+    .dark #chat-history-list li.active { /* Gaya untuk item chat aktif di dark mode */
+      background-color: #4B5563; /* icon-hover-dark */
     }
   `;
   document.head.appendChild(styleTagActive);
