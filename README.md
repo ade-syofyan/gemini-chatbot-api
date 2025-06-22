@@ -12,18 +12,6 @@ Gemini AI Chatbot adalah antarmuka percakapan berbasis web yang memungkinkan pen
 - 📂 **Daftar Percakapan Sebelumnya**  
   Sidebar menampilkan daftar topik diskusi atau judul percakapan yang telah dilakukan. Setiap item dapat diklik untuk membuka kembali isi percakapan tersebut.
 
-- 📝 **Riwayat Topik**  
-  Judul-judul seperti _Definisi Roti Tawar_, _Cinta Monyet_, dan lainnya menunjukkan kemampuan AI untuk mendeteksi dan memberi label percakapan otomatis.
-
-- 🌐 **Deteksi Bahasa Otomatis**  
-  AI merespons sesuai bahasa yang digunakan pengguna, dengan default Bahasa Indonesia, namun bisa berganti ke bahasa lain sesuai konteks input.
-
-- 🎛️ **Mode Terang/Gelap**  
-  Tersedia opsi pengaturan mode tampilan (contohnya ikon `Mode Terang` di kiri bawah), memungkinkan pengguna memilih tema UI yang diinginkan.
-
-- 📦 **UI Minimalis & Fokus**  
-  Desain bersih dan fokus pada area percakapan utama untuk pengalaman chatting yang menyenangkan.
-
 - 📎 **Unggah Berbagai Tipe File**
   Mendukung unggahan berbagai tipe file seperti gambar (JPEG, PNG, WebP), PDF, audio (MPEG, WAV, MP4, WebM), video (MP4, WebM, Ogg), dan teks biasa. File-file ini disimpan secara persisten menggunakan IndexedDB.
 
