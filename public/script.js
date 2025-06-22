@@ -36,6 +36,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const confirmModal = document.getElementById("confirm-modal");
   const cancelDeleteBtn = document.getElementById("cancel-delete-btn");
   const confirmDeleteBtn = document.getElementById("confirm-delete-btn");
+  // Elements for responsive behavior
+  const mobileMenuBtn = document.getElementById("mobile-menu-btn");
+  const sidebarOverlay = document.getElementById("sidebar-overlay");
+
   let chatItemToDelete = null; // Stores reference to the item to be deleted
 
   // --- Application State ---
@@ -315,6 +319,24 @@ document.addEventListener("DOMContentLoaded", () => {
     // In a real app, you would also reset the chat history context on the server if it were stateful
     updateSendButtonState(); // Disable send button for the new empty chat
   });
+
+  // --- Responsive Sidebar Logic ---
+
+  // Function to toggle sidebar visibility on mobile
+  function toggleMobileSidebar() {
+    sidebar.classList.toggle("-translate-x-full");
+    sidebarOverlay.classList.toggle("hidden");
+  }
+
+  // Event listener for the mobile menu button to show the sidebar
+  if (mobileMenuBtn) {
+    mobileMenuBtn.addEventListener("click", toggleMobileSidebar);
+  }
+
+  // Event listener for the overlay to hide the sidebar when clicked
+  if (sidebarOverlay) {
+    sidebarOverlay.addEventListener("click", toggleMobileSidebar);
+  }
 
   // Manage clicks on chat history items (edit title and load chat)
   chatHistoryList.addEventListener("click", (e) => {

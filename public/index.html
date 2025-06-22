@@ -61,11 +61,11 @@
   <body
     class="font-sans bg-gray-bg-light text-text-light m-0 p-0 flex h-screen overflow-hidden dark:bg-dark-bg dark:text-text-dark"
   >
-    <div class="flex w-full h-full transition-all duration-300 ease-in-out">
+    <div class="relative flex w-full h-full transition-all duration-300 ease-in-out">
       <!-- Sidebar -->
       <aside
         id="sidebar"
-        class="w-64 bg-sidebar-bg-light flex flex-col border-r border-border-light transition-all duration-300 ease-in-out flex-shrink-0 dark:bg-sidebar-bg-dark dark:border-border-dark"
+        class="fixed inset-y-0 left-0 z-40 w-64 bg-sidebar-bg-light flex flex-col border-r border-border-light transition-transform duration-300 ease-in-out flex-shrink-0 dark:bg-sidebar-bg-dark dark:border-border-dark transform -translate-x-full md:relative md:translate-x-0"
       >
         <!-- Header for expanded state -->
         <div
@@ -182,11 +182,25 @@
       <main
         class="flex-grow flex flex-col h-screen p-5 bg-gray-bg-light dark:bg-dark-bg"
       >
+        <!-- Mobile Header -->
+        <header class="flex items-center justify-between mb-5 md:hidden">
+          <button id="mobile-menu-btn" class="p-2 rounded-md text-icon-light dark:text-icon-dark hover:bg-icon-hover-light dark:hover:bg-icon-hover-dark">
+            <!-- Hamburger Icon -->
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+          </button>
+          <h1 class="text-xl font-bold text-center text-text-light dark:text-text-dark">
+            Gemini AI
+          </h1>
+          <div class="w-8"></div> <!-- Spacer to center the title -->
+        </header>
+
+        <!-- Desktop Header -->
         <h1
-          class="text-3xl font-bold text-center mb-5 text-text-light dark:text-text-dark"
+          class="hidden md:block text-3xl font-bold text-center mb-5 text-text-light dark:text-text-dark"
         >
           Gemini AI Chatbot
         </h1>
+
         <!-- Chat Box, initially hidden -->
         <div
           id="chat-box"
@@ -216,6 +230,9 @@
         </form>
       </main>
     </div>
+
+    <!-- Overlay for mobile sidebar -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden md:hidden"></div>
 
     <!-- Confirmation Delete Modal -->
     <div
