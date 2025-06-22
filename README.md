@@ -39,8 +39,6 @@ Gemini AI Chatbot adalah antarmuka percakapan berbasis web yang memungkinkan pen
 - 📦 **UI Minimalis & Fokus**  
   Desain bersih dan fokus pada area percakapan utama untuk pengalaman chatting yang menyenangkan.
 
-## 🖼️ Screenshot
-
 ## 🛠️ Teknologi yang Digunakan
 
 Proyek Gemini AI Chatbot ini dibangun menggunakan kombinasi teknologi frontend dan backend modern untuk memberikan pengalaman pengguna yang responsif dan interaktif:
@@ -58,7 +56,7 @@ Proyek Gemini AI Chatbot ini dibangun menggunakan kombinasi teknologi frontend d
     -   **Multer:** Middleware Node.js untuk menangani unggahan file multipart/form-data, memungkinkan pengguna mengirim file bersama pesan mereka.
     -   **`dotenv`:** Untuk mengelola variabel lingkungan (seperti kunci API) dengan aman.
 
-
+## 🖼️ Screenshot
 
 Tampilan utama aplikasi chatbot:
 
