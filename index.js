@@ -61,7 +61,7 @@ app.post("/api/chat", async (req, res) => {
       contents: chatContent,
     });
 
-    const reply = response?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const reply = response.text;
 
     if (reply) {
       res.json({ reply });
