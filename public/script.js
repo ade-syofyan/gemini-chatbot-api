@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- Elemen DOM ---
   const form = document.getElementById("chat-form");
   const input = document.getElementById("user-input");
+  const mainContainer = document.getElementById("main-container");
   const chatBox = document.getElementById("chat-box");
   const sendButton = document.querySelector("#chat-form button");
   const sendIcon = document.getElementById("send-icon");
@@ -27,6 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const themeToggleSwitch = document.getElementById("theme-toggle-switch"); // New switch element
   const themeLabel = document.getElementById("theme-label"); // The text label for the theme
   const chatHistoryList = document.getElementById("chat-history-list"); // Nav element itself
+  const welcomeView = document.getElementById("welcome-view");
   const sidebarFooterDiv = document.getElementById("sidebar-footer"); // Div element for footer
 
   const moonIcon = document.getElementById("moon-icon");
@@ -46,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let chats = {}; // Object to hold all chat histories, e.g., { "chat-id-1": { title: "...", messages: [...] } }
   let currentChatId = null; // The ID of the currently active chat
   let currentAbortController = null; // To manage ongoing fetch requests
+  let isSidebarCollapsed = false; // Tracks the permanent collapsed state for hover functionality
 
   // --- Helper function to manage send button state ---
   function updateSendButtonState() {
@@ -88,13 +91,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     currentChatId = chatId;
     chatBox.innerHTML = ""; // Clear the chat box
-    chatBox.classList.remove("hidden"); // Make sure it's visible
 
     // Populate the chat box with messages from the selected history
     chats[chatId].messages.forEach((message) => {
       // `false` disables the typewriter effect for historical messages
       appendMessage(message.sender, message.text, false);
     });
+    toggleChatView(true); // Switch to active chat view
 
     updateActiveChatInSidebar(chatId);
     // Scroll to the bottom after loading
@@ -130,7 +133,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const userMessage = input.value.trim();
     if (!userMessage) return;
 
-    chatBox.classList.remove("hidden");
+    toggleChatView(true); // Switch to active chat view
 
     appendMessage("user", userMessage);
     input.value = ""; // Clear input immediately
@@ -228,51 +231,55 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Manage sidebar display/hide
-  toggleSidebarBtnExpanded.addEventListener("click", () => {
+  // --- Sidebar Management ---
+
+  function collapseSidebar() {
     sidebar.classList.remove("w-64");
     sidebar.classList.add("w-16", "p-2", "items-center");
-
     sidebarHeaderExpanded.classList.add("hidden");
     sidebarHeaderCollapsed.classList.remove("hidden");
+    chatHistoryList.classList.add("opacity-0", "pointer-events-none", "h-0", "overflow-hidden", "p-0");
+    sidebarFooterDiv.classList.add("opacity-0", "pointer-events-none", "h-0", "overflow-hidden", "p-0");
+  }
 
-    chatHistoryList.classList.add(
-      "opacity-0",
-      "pointer-events-none",
-      "h-0",
-      "overflow-hidden",
-      "p-0"
-    ); // Hide and disable interaction
-    sidebarFooterDiv.classList.add(
-      "opacity-0",
-      "pointer-events-none",
-      "h-0",
-      "overflow-hidden",
-      "p-0"
-    ); // Hide and disable interaction
+  function expandSidebar() {
+    sidebar.classList.remove("w-16", "p-2", "items-center");
+    sidebar.classList.add("w-64");
+    sidebarHeaderExpanded.classList.remove("hidden");
+    sidebarHeaderCollapsed.classList.add("hidden");
+    chatHistoryList.classList.remove("opacity-0", "pointer-events-none", "h-0", "overflow-hidden", "p-0");
+    sidebarFooterDiv.classList.remove("opacity-0", "pointer-events-none", "h-0", "overflow-hidden", "p-0");
+  }
+
+  // Manage sidebar display/hide via clicks
+  toggleSidebarBtnExpanded.addEventListener("click", () => {
+    // If the sidebar is already meant to be collapsed (i.e., we are in a hover-to-expand state),
+    // then this click should make it permanently expanded.
+    if (isSidebarCollapsed) {
+      isSidebarCollapsed = false; // Cancel the collapse state. The sidebar will now stay expanded on mouseleave.
+    } else {
+      // Otherwise, this is a normal collapse action from an already expanded state.
+      collapseSidebar();
+      isSidebarCollapsed = true;
+    }
   });
 
   toggleSidebarBtnCollapsed.addEventListener("click", () => {
-    sidebar.classList.remove("w-16", "p-2", "items-center");
-    sidebar.classList.add("w-64");
+    expandSidebar();
+    isSidebarCollapsed = false;
+  });
 
-    sidebarHeaderExpanded.classList.remove("hidden");
-    sidebarHeaderCollapsed.classList.add("hidden");
+  // Add hover effect for minimized sidebar
+  sidebar.addEventListener("mouseenter", () => {
+    if (isSidebarCollapsed) {
+      expandSidebar();
+    }
+  });
 
-    chatHistoryList.classList.remove(
-      "opacity-0",
-      "pointer-events-none",
-      "h-0",
-      "overflow-hidden",
-      "p-0"
-    ); // Show and enable interaction
-    sidebarFooterDiv.classList.remove(
-      "opacity-0",
-      "pointer-events-none",
-      "h-0",
-      "overflow-hidden",
-      "p-0"
-    ); // Show and enable interaction
+  sidebar.addEventListener("mouseleave", () => {
+    if (isSidebarCollapsed) {
+      collapseSidebar();
+    }
   });
 
   newChatIconBtn.addEventListener("click", () => {
@@ -311,14 +318,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Start new chat
   newChatBtn.addEventListener("click", () => {
-    chatBox.innerHTML = ""; // Clear chat box
-    chatBox.classList.add("hidden"); // Hide chat box again for new session
+    toggleChatView(false); // Switch back to the welcome view
     input.value = ""; // Clear the input field
     currentChatId = null; // Reset current chat ID
     updateActiveChatInSidebar(null); // Remove active highlight
     // In a real app, you would also reset the chat history context on the server if it were stateful
     updateSendButtonState(); // Disable send button for the new empty chat
   });
+
+  // --- UI View Management ---
+
+  // Function to switch between welcome view and active chat view
+  function toggleChatView(isChatting) {
+    if (isChatting) {
+      welcomeView.classList.add("hidden");
+      chatBox.classList.remove("hidden");
+      mainContainer.classList.remove("justify-center");
+      form.classList.add("mt-auto");
+    } else {
+      chatBox.innerHTML = ""; // Clear chat box content
+      chatBox.classList.add("hidden");
+      welcomeView.classList.remove("hidden");
+      mainContainer.classList.add("justify-center");
+      form.classList.remove("mt-auto");
+    }
+  }
 
   // --- Responsive Sidebar Logic ---
 
@@ -555,7 +579,57 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyMarkdownStyling(element) {
     // Code blocks
     element.querySelectorAll("pre").forEach((pre) => {
-      pre.classList.add("rounded-md", "overflow-hidden", "my-3", "shadow");
+      // Add relative positioning for the copy button and group for hover effect
+      pre.classList.add(
+        "group",
+        "relative",
+        // Add padding and background color to the pre container
+        "bg-white",
+        "dark:bg-main-bg-dark", // Use main dark background for the container
+        "p-4", // Add padding around the code
+        "rounded-md",
+        "overflow-hidden",
+        "my-3",
+        "shadow"
+      );
+
+      // Create and append the copy button
+      const copyButton = document.createElement("button");
+      const copyIconSVG = `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg><span>Copy</span>`;
+      const checkIconSVG = `<svg class="w-4 h-4 mr-1 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span class="text-green-500">Copied!</span>`;
+
+      copyButton.innerHTML = copyIconSVG;
+      copyButton.classList.add(
+        "copy-code-btn",
+        "absolute", "top-2", "right-2",
+        // Improved styling for better contrast and modern look
+        "bg-gray-200", "dark:bg-gray-800",
+        "hover:bg-gray-300", "dark:hover:bg-gray-700",
+        "border", "border-gray-300", "dark:border-gray-600",
+        "text-gray-700", "dark:text-gray-300",
+        "text-xs", "font-sans", "font-medium",
+        "py-1", "px-2", "rounded-md",
+        "flex", "items-center",
+        "opacity-0", "group-hover:opacity-100", // Show on hover of the pre block
+        "transition-all", "duration-200"
+      );
+
+      copyButton.addEventListener("click", () => {
+        // Prevent the button from being clicked again while in "Copied!" state
+        if (copyButton.disabled) return;
+
+        const codeToCopy = pre.querySelector("code")?.textContent || "";
+        navigator.clipboard.writeText(codeToCopy).then(() => {
+          copyButton.innerHTML = checkIconSVG;
+          copyButton.disabled = true;
+          setTimeout(() => {
+            copyButton.innerHTML = copyIconSVG;
+            copyButton.disabled = false;
+          }, 2000);
+        });
+      });
+
+      pre.appendChild(copyButton);
     });
     element.querySelectorAll("code").forEach((code) => {
       if (code.closest("pre")) {
