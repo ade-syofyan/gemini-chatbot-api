@@ -25,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const newChatIconBtn = document.getElementById("new-chat-icon-btn"); // New icon button for collapsed state
 
   const themeToggleSwitch = document.getElementById("theme-toggle-switch"); // New switch element
+  const themeLabel = document.getElementById("theme-label"); // The text label for the theme
   const chatHistoryList = document.getElementById("chat-history-list"); // Nav element itself
   const sidebarFooterDiv = document.getElementById("sidebar-footer"); // Div element for footer
 
@@ -278,24 +279,30 @@ document.addEventListener("DOMContentLoaded", () => {
   themeToggleSwitch.addEventListener("change", () => {
     if (themeToggleSwitch.checked) {
       document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
       moonIcon.classList.remove("hidden");
       sunIcon.classList.add("hidden");
+      if (themeLabel) themeLabel.textContent = "Mode Gelap";
     } else {
       document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
       moonIcon.classList.add("hidden");
       sunIcon.classList.remove("hidden");
+      if (themeLabel) themeLabel.textContent = "Mode Terang";
     }
   });
 
-  // Set initial state of the switch and icons based on current theme
-  if (document.documentElement.classList.contains("dark")) {
+  // Set initial theme based on localStorage or system preference
+  const savedTheme = localStorage.getItem("theme");
+  if (savedTheme === "dark" || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add("dark");
     themeToggleSwitch.checked = true;
     moonIcon.classList.remove("hidden");
     sunIcon.classList.add("hidden");
+    if (themeLabel) themeLabel.textContent = "Mode Gelap";
   } else {
-    themeToggleSwitch.checked = false;
-    moonIcon.classList.add("hidden");
-    sunIcon.classList.remove("hidden");
+    // The default state is light, so the HTML is already correct. This block is for clarity.
+    if (themeLabel) themeLabel.textContent = "Mode Terang";
   }
 
   // Start new chat
@@ -676,8 +683,8 @@ document.addEventListener("DOMContentLoaded", () => {
     .dot {
       transform: translateX(0);
     }
-    #theme-toggle-switch:checked + div .dot {
-      transform: translateX(100%);
+    #theme-toggle-switch:checked ~ .dot {
+      transform: translateX(100%); /* Moves the dot to the right */
     }
   `;
   document.head.appendChild(styleTag);
